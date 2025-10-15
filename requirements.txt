@@ -1,4 +1,8 @@
 streamlit
 torch
 torchvision
-Pillow
+pillow
+pandas
+numpy
+joblib
+opencv-python
