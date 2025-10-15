@@ -6,6 +6,10 @@ from lang import LANG
 import numpy as np
 import joblib
 import cv2
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 if "lang" not in st.session_state:
     st.session_state.lang = "fr"
@@ -31,9 +35,9 @@ st.subheader("Exemples de scans" if st.session_state.lang=="fr" else "Example sc
 cols = st.columns(3)
 
 image_paths = [
-    ("Scan Sain", "/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/images/Scan_Sain_Exemple.jpeg"),
-    ("Pneumonie Bactérienne", "/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/images/Scan_PneumonieBacterienne.jpeg"),
-    ("Pneumonie Virale", "/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/images/Scan_PneumonieViral.jpeg")
+    ("Scan Sain", os.path.join(BASE_DIR, "../projets/zoidberg/images/Scan_Sain_Exemple.jpeg")),
+    ("Pneumonie Bactérienne", os.path.join(BASE_DIR, "../projets/zoidberg/images/Scan_PneumonieBacterienne.jpeg")),
+    ("Pneumonie Virale", os.path.join(BASE_DIR, "../projets/zoidberg/images/Scan_PneumonieViral.jpeg"))
 ]
 
 for col, (caption_fr, path) in zip(cols, image_paths):
@@ -61,7 +65,7 @@ if st.session_state.lang=="en":
     })
 
 st.dataframe(df)
-st.image("/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/images/DatasetPop.png", caption="Distribution des classes" if st.session_state.lang=="fr" else "Class distribution")
+st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/DatasetPop.png"), caption="Distribution des classes" if st.session_state.lang=="fr" else "Class distribution")
 
 
 # -------------------------------
@@ -79,7 +83,7 @@ st.write(
     else "Resizing images to have the same dimensions."
 )
 # Placeholder pour montrer histogramme dimensions
-st.image("/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/images/imageweight.png", caption="Histogramme des dimensions" if st.session_state.lang=="fr" else "2D Histogram of image dimensions")
+st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/imageweight.png"), caption="Histogramme des dimensions" if st.session_state.lang=="fr" else "2D Histogram of image dimensions")
 
 
 st.write(
@@ -87,7 +91,7 @@ st.write(
     else "Data augmentation using horizontal flip."
 )
 # Placeholder pour montrer flip
-st.image("/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/images/flipimage.png", caption="Exemple de flip horizontal" if st.session_state.lang=="fr" else "Example of horizontal flip")
+st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/flipimage.png"), caption="Exemple de flip horizontal" if st.session_state.lang=="fr" else "Example of horizontal flip")
 
 
 # -------------------------------
@@ -165,17 +169,17 @@ else:
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.image("/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/images/svcwithpca.png", 
+    st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/svcwithpca.png"), 
              caption="Matrice de confusion - Ensemble de validation" if st.session_state.lang=="fr" 
              else "Confusion Matrix - Validation Set")
 
 with col2:
-    st.image("/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/images/classification_rapport.png", 
+    st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/classification_rapport.png"), 
              caption="Rapport de classification" if st.session_state.lang=="fr" 
              else "Classification Report")
     
 with col3:
-    st.image("/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/images/aucsvcwithpca.png", 
+    st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/aucsvcwithpca.png"), 
              caption="Courbes ROC" if st.session_state.lang=="fr" 
              else "ROC Curves")
 
@@ -242,7 +246,7 @@ uploaded = st.file_uploader(
 
 @st.cache_resource
 def load_model():
-    return joblib.load("/Users/lenaoudjman/Desktop/Portfolio/projets/zoidberg/models/final_model_svc_pca.pkl")
+    return joblib.load(os.path.join(BASE_DIR, "../projets/zoidberg/models/final_model_svc_pca.pkl"))
 
 model = load_model()
 classes = ['NORMAL', 'BACTERIA', 'VIRUS'] if st.session_state.lang=="fr" else ['NORMAL', 'BACTERIA', 'VIRUS'] 
