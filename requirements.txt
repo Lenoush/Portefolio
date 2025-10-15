@@ -5,4 +5,5 @@ pillow
 pandas
 numpy
 joblib
+scikit-learn
 opencv-python-headless
