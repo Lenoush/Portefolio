@@ -4,7 +4,7 @@ from PIL import Image
 import torch
 import torchvision.transforms as transforms
 
-from lang import LANG
+from langues.lang import LANG
 
 t = LANG[st.session_state.lang]
 

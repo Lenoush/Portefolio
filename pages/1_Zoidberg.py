@@ -1,16 +1,22 @@
-# pages/1_Classification_Poumons.py
 import streamlit as st
 from PIL import Image
 import pandas as pd
-from lang import LANG
 import numpy as np
+from pathlib import Path
 import joblib
 import cv2
 import os
+from langues.lang_zoidberg import LANG_ZOIDBERG
 
+# ------------------------------------------------------
+# Configuration
+# ------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+st.set_page_config(layout="wide")
 
-
+# ------------------------------------------------------
+# Langue
+# ------------------------------------------------------
 if "lang" not in st.session_state:
     st.session_state.lang = "fr"
 
@@ -19,255 +25,166 @@ with col_lang2:
     choice = st.radio("🌐", ["FR", "EN"], horizontal=True, label_visibility="collapsed")
     st.session_state.lang = "fr" if choice == "FR" else "en"
 
-t = LANG[st.session_state.lang]
+t = LANG_ZOIDBERG[st.session_state.lang]
 
-# -------------------------------
-# 1. Titre & objectif
-# -------------------------------
+# ------------------------------------------------------
+# Titre et description
+# ------------------------------------------------------
 st.title(t["proj_zoidberg"])
 st.write(t["proj_zoidberg_description"])
 
-# -------------------------------
-# 2. Exemples de scan
-# -------------------------------
-st.subheader("Exemples de scans" if st.session_state.lang=="fr" else "Example scans")
+# ------------------------------------------------------
+# Métriques clés
+# ------------------------------------------------------
+st.subheader(t["metrics_title"])
 
-cols = st.columns(3)
+for row in t["metrics_rows"]:
+    cols = st.columns(4)
+    for col, metric in zip(cols, row):
+        with col:
+            st.metric(metric["label"], metric["value"], help=metric.get("help", None))
 
-image_paths = [
-    ("Scan Sain", os.path.join(BASE_DIR, "../projets/zoidberg/images/Scan_Sain_Exemple.jpeg")),
-    ("Pneumonie Bactérienne", os.path.join(BASE_DIR, "../projets/zoidberg/images/Scan_PneumonieBacterienne.jpeg")),
-    ("Pneumonie Virale", os.path.join(BASE_DIR, "../projets/zoidberg/images/Scan_PneumonieViral.jpeg"))
-]
+# ------------------------------------------------------
+# Interface de test
+# ------------------------------------------------------
+st.subheader(t["test_model_title"])
 
-for col, (caption_fr, path) in zip(cols, image_paths):
-    caption = caption_fr if st.session_state.lang == "fr" else caption_fr.replace("Sain","Healthy").replace("Pneumonie Bactérienne","Bacterial Pneumonia").replace("Pneumonie Virale","Viral Pneumonia")
-    with col:
-        st.image(path, caption=caption, width=200)
+# Images prédéfinies
+healthy_dir = Path(os.path.join(BASE_DIR, "../projets/zoidberg/images/healthy"))
+bacterial_dir = Path(os.path.join(BASE_DIR, "../projets/zoidberg/images/bacterial"))
+viral_dir = Path(os.path.join(BASE_DIR, "../projets/zoidberg/images/viral"))
 
-# -------------------------------
-# 3. Proportion des données / poids
-# -------------------------------
-st.subheader("Statistiques du dataset" if st.session_state.lang=="fr" else "Dataset statistics")
+healthy_images = [None] + sorted(healthy_dir.glob("*.jpeg"))
+bacterial_images = [None] + sorted(bacterial_dir.glob("*.jpeg"))
+viral_images = [None] + sorted(viral_dir.glob("*.jpeg"))
 
-data_summary = {
-    "Classe": ["BACTERIA", "NORMAL", "VIRUS"],
-    "Nombre d'images": [2780, 1585, 1493],
-    "Poids": [0.702158273381295, 1.2331017056222362, 1.3074346952444742]
-}
+col1, col2, col3, col4 = st.columns(4)
 
-df = pd.DataFrame(data_summary)
-if st.session_state.lang=="en":
-    df = df.rename(columns={
-        "Classe":"Class",
-        "Nombre d'images":"Number of images",
-        "Poids":"Weight"
-    })
-
-st.dataframe(df)
-st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/DatasetPop.png"), caption="Distribution des classes" if st.session_state.lang=="fr" else "Class distribution")
-
-
-# -------------------------------
-# 4. Preprocessing
-# -------------------------------
-st.subheader("Preprocessing des images" if st.session_state.lang=="fr" else "Image preprocessing")
-
-st.write(
-    "- Normaliser avec StandardScaler" if st.session_state.lang=="fr"
-    else "- Normalize using StandardScaler"
-)
-
-st.write(
-    "- Redimension des images pour avoir le même cadre et même dimensions." if st.session_state.lang=="fr"
-    else "Resizing images to have the same dimensions."
-)
-# Placeholder pour montrer histogramme dimensions
-st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/imageweight.png"), caption="Histogramme des dimensions" if st.session_state.lang=="fr" else "2D Histogram of image dimensions")
-
-
-st.write(
-    "- Augmentation des données avec flip horizontal." if st.session_state.lang=="fr"
-    else "Data augmentation using horizontal flip."
-)
-# Placeholder pour montrer flip
-st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/flipimage.png"), caption="Exemple de flip horizontal" if st.session_state.lang=="fr" else "Example of horizontal flip")
-
-
-# -------------------------------
-# 5. Modèles
-# -------------------------------
-st.subheader("Modèles testés" if st.session_state.lang=="fr" else "Tested models")
-
-if st.session_state.lang=="fr":
-    st.write("""
-    ### Approche de modélisation
-    
-    Plusieurs modèles de classification ont été testés et comparés sur des données prétraitées :
-    
-    **Optimisation des hyperparamètres :**
-    - **GridSearchCV** : Recherche exhaustive sur une grille de paramètres
-    - **RandomizedSearchCV** : Recherche aléatoire pour explorer un espace plus large
-    
-    **Modèles testés :**
-    - **SVC (Support Vector Classifier)** avec et sans PCA
-    - **Random Forest** avec réduction de dimensionnalité (PCA)
-    
-    **PCA (Principal Component Analysis)** : Technique de réduction de dimensionnalité qui transforme 
-    les features corrélées en composantes principales orthogonales, permettant de réduire la complexité 
-    computationnelle tout en conservant la variance maximale des données.
-    
-    ---
-
-    ### 🏆 Meilleur modèle : SVC avec PCA avec 81% de précision
-
-    Le **Support Vector Classifier avec PCA** a été retenu comme meilleur modèle, entraîné sur les 
-    ensembles train et validation avec les paramètres optimaux (γ=0.0001, C=0.1).
-    
-    **Points forts :**
-    - Excellente détection des radiographies **NORMALES**
-    - Très bonne identification de la présence de **pneumonie**
-    
-    **Limites :**
-    - Difficulté à différencier précisément **virus** vs **bactérie**
-
-    """)
-else:
-    st.write("""
-    ### Modeling Approach
-    
-    Several classification models were tested and compared on preprocessed data:
-    
-    **Hyperparameter optimization:**
-    - **GridSearchCV**: Exhaustive grid search over parameter space
-    - **RandomizedSearchCV**: Random search to explore a wider parameter space
-    
-    **Models tested:**
-    - **SVC (Support Vector Classifier)** with and without PCA
-    - **Random Forest** with dimensionality reduction (PCA)
-    
-    **PCA (Principal Component Analysis)**: Dimensionality reduction technique that transforms 
-    correlated features into orthogonal principal components, reducing computational complexity 
-    while preserving maximum data variance.
-    
-    ---
-
-    ### 🏆 Best Model: SVC with PCA with 81% of accuracy
-
-    The **Support Vector Classifier with PCA** was selected as the best model, trained on train
-    and validation sets with optimal parameters (γ=0.0001, C=0.1).
-    
-    **Strengths:**
-    - Excellent detection of **NORMAL** X-rays
-    - Very good identification of **pneumonia** presence
-    
-    **Limitations:**
-    - Difficulty in precisely distinguishing **virus** vs **bacteria**
-    """)
-
-# Affichage des résultats
-col1, col2, col3 = st.columns(3)
+# Fonction de réinitialisation
+def reset_selection():
+    st.session_state["healthy_select"] = None
+    st.session_state["bacterial_select"] = None
+    st.session_state["viral_select"] = None
 
 with col1:
-    st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/svcwithpca.png"), 
-             caption="Matrice de confusion - Ensemble de validation" if st.session_state.lang=="fr" 
-             else "Confusion Matrix - Validation Set")
-
+    selected_healthy = st.selectbox(
+        t["healthy_label"], healthy_images,
+        format_func=lambda x: x.name if x else "--",
+        key="healthy_select"
+    )
 with col2:
-    st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/classification_rapport.png"), 
-             caption="Rapport de classification" if st.session_state.lang=="fr" 
-             else "Classification Report")
-    
+    selected_bacterial = st.selectbox(
+        t["bacterial_label"], bacterial_images,
+        format_func=lambda x: x.name if x else "--",
+        key="bacterial_select"
+    )
 with col3:
-    st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/aucsvcwithpca.png"), 
-             caption="Courbes ROC" if st.session_state.lang=="fr" 
-             else "ROC Curves")
+    selected_viral = st.selectbox(
+        t["viral_label"], viral_images,
+        format_func=lambda x: x.name if x else "--",
+        key="viral_select"
+    )
+with col4:
+    st.button(t["reset_button"], on_click=reset_selection)
 
-# Métriques clés
-st.write("#### Métriques de performance" if st.session_state.lang=="fr" else "#### Performance Metrics")
+uploaded = st.file_uploader(t["upload_label"], type=["jpg", "png", "jpeg"])
 
-metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
-with metrics_col1:
-    st.metric("F1-Score Global" if st.session_state.lang=="fr" else "Overall F1-Score", "80%")
-with metrics_col2:
-    st.metric("F1-Score NORMAL" if st.session_state.lang=="fr" else "NORMAL F1-Score", "92%", 
-              help="Excellent" if st.session_state.lang=="fr" else "Excellent")
-with metrics_col3:
-    st.metric("F1-Score Pneumonie Bacterienne" if st.session_state.lang=="fr" else "Bacteria Pneumonia F1-Score", "83%",
-              help="Bon" if st.session_state.lang=="fr" else "good")
-with metrics_col4:
-    st.metric("F1-Score Pneumonie Virale" if st.session_state.lang=="fr" else "Viral Pneumonia F1-Score", "62%",
-              help="À améliorer" if st.session_state.lang=="fr" else "To improve")
-    
-metrics_col1, metrics_col2, metrics_col3, metrics_col4 = st.columns(4)
-with metrics_col1:
-    st.metric("AUC Global" if st.session_state.lang=="fr" else "Overall AUC", "91.9%")
-with metrics_col2:
-    st.metric("AUC NORMAL" if st.session_state.lang=="fr" else "NORMAL AUC", "98.6%", 
-              help="Excellent" if st.session_state.lang=="fr" else "Excellent")
-with metrics_col3:
-    st.metric("AUC Pneumonie Bacterienne" if st.session_state.lang=="fr" else "Bacteria Pneumonia AUC", "91.0%",
-              help="Bon" if st.session_state.lang=="fr" else "good")
-with metrics_col4:
-    st.metric("AUC Pneumonie Virale" if st.session_state.lang=="fr" else "Viral Pneumonia AUC", "86.1%",
-              help="Bon" if st.session_state.lang=="fr" else "good")
-    
-
-
-# Comparaison des modèles
-with st.expander("📊 Comparaison des autres modèles testés" if st.session_state.lang=="fr" 
-                 else "📊 Comparison with other tested models"):
-    if st.session_state.lang=="fr":
-        st.write("""
-        | Modèle | PCA | F1-Score | Observations |
-        |--------|-----|----------|--------------|
-        | **SVC** | ✅ Oui | **79%** | 🏆 Meilleur équilibre |
-        | SVC | ❌ Non | ~75% | Bonnes performances mais moins stable |
-        | Random Forest | ✅ Oui | ~72% | Plus rapide mais moins précis |
-        """)
-    else:
-        st.write("""
-        | Model | PCA | F1-Score | Observations |
-        |-------|-----|----------|--------------|
-        | **SVC** | ✅ Yes | **79%** | 🏆 Best balance |
-        | SVC | ❌ No | ~75% | Good performance but less stable |
-        | Random Forest | ✅ Yes | ~72% | Faster but less accurate |
-        """)
-
-
-# -------------------------------
-# 6. Interface interactive
-# -------------------------------
-st.subheader("Tester le modèle" if st.session_state.lang=="fr" else "Test the model")
-uploaded = st.file_uploader(
-    "Upload un scan de poumon (jpg/png)" if st.session_state.lang=="fr" else "Upload a lung scan (jpg/png)",
-    type=["jpg","png"]
-)
-
+# ------------------------------------------------------
+# Chargement du modèle
+# ------------------------------------------------------
 @st.cache_resource
 def load_model():
     return joblib.load(os.path.join(BASE_DIR, "../projets/zoidberg/models/final_model_svc_pca.pkl"))
 
 model = load_model()
-classes = ['NORMAL', 'BACTERIA', 'VIRUS'] if st.session_state.lang=="fr" else ['NORMAL', 'BACTERIA', 'VIRUS'] 
+classes = ["NORMAL", "BACTERIA", "VIRUS"]
 
+# ------------------------------------------------------
+# Prédiction
+# ------------------------------------------------------
 IMG_SIZE = 100
 
-if uploaded:
-    img = Image.open(uploaded).convert("RGB")
-    st.image(img, caption="Image importée" if st.session_state.lang=="fr" else "Uploaded image")
-    
+def predict_image(image_path_or_obj):
+    img = Image.open(image_path_or_obj).convert("RGB")
     img_array = np.array(img)
     img_gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
     img_resized = cv2.resize(img_gray, (IMG_SIZE, IMG_SIZE))
     img_normalized = img_resized.astype(np.float32) / 255.0
-    img_with_channel = img_normalized.reshape(IMG_SIZE, IMG_SIZE, 1)
-    input_vector = img_with_channel.reshape(1, -1)
+    input_vector = img_normalized.reshape(1, -1)
 
-    # 🧠 Le pipeline applique automatiquement scaler + PCA + SVC
-    pred_index = model.predict(input_vector)[0]
     probs = model.predict_proba(input_vector)[0]
+    return probs, img
 
-    st.success(f"Résultat : **{classes[pred_index]}**")
+# Sélection finale
+image_to_test = None
+expected_class = None
+
+if uploaded:
+    image_to_test = uploaded
+    expected_class = None
+    st.info(t["info_uploaded"])
+elif selected_healthy:
+    image_to_test = selected_healthy
+    expected_class = "NORMAL"
+elif selected_bacterial:
+    image_to_test = selected_bacterial
+    expected_class = "BACTERIA"
+elif selected_viral:
+    image_to_test = selected_viral
+    expected_class = "VIRUS"
+
+# Affichage résultat
+if image_to_test:
+    probs, img = predict_image(image_to_test)
+    st.image(img, caption=t["uploaded_image_caption"], width=200)
     prob_dict = {c: float(f"{p:.3f}") for c, p in zip(classes, probs)}
+    st.write(t["Show_Proba"])
     st.json(prob_dict)
+
+    if expected_class:
+        predicted_class = classes[np.argmax(probs)]
+        if predicted_class == expected_class:
+            st.success(t["correct_result"].format(expected_class=expected_class))
+        else:
+            st.error(t["wrong_result"].format(predicted_class=predicted_class, expected_class=expected_class))
+
+# ------------------------------------------------------
+# Données & préprocessing
+# ------------------------------------------------------
+st.subheader(t["preprocess_data"])
+st.write(t["example_scans_title"])
+
+cols = st.columns(3)
+for col, img in zip(cols, t["example_scans"]):
+    with col:
+        st.image(os.path.join(BASE_DIR, img["path"]), caption=img["caption"], width=200)
+
+st.write(t["dataset_title"])
+df = pd.DataFrame(t["dataset"])
+st.dataframe(df)
+st.image(os.path.join(BASE_DIR, "../projets/zoidberg/images/DatasetPop.png"), caption=t["dataset_image_caption"])
+
+st.write(t["preprocessing_title"])
+for step in t["preprocessing_steps"]:
+    st.write(step["text"])
+    if step["image"]:
+        cols = st.columns(len(step["image"]))
+        for col, img_path in zip(cols, step["image"]):
+            with col:
+                st.image(os.path.join(BASE_DIR, img_path), caption=step.get("caption", ""))
+
+# ------------------------------------------------------
+# Modélisation
+# ------------------------------------------------------
+st.subheader(t["models_title"])
+st.write(t["modeling_text"])
+
+cols = st.columns(3)
+for col, img in zip(cols, t["model_images"]):
+    with col:
+        st.image(os.path.join(BASE_DIR, img["path"]), caption=img["caption"])
+
+with st.expander(t["comparison_title"]):
+    st.markdown(t["comparison_table"])
+
+st.caption(t["footer"])
